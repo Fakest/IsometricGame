@@ -1,3 +1,9 @@
+package engine;
+
+import graphics.Shader;
+import input.Input;
+import level.Level;
+import math.Matrix4f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.glfw.GLFWVidMode;
@@ -17,8 +23,11 @@ import static org.lwjgl.system.MemoryUtil.NULL;
 public class Engine implements Runnable {
 
     public long window;
+
+    private Level level;
+
     private double fps = 60.0;
-    private double frame_cap = 1.0/fps;
+    private double frame_cap = 1.0 / fps;
     private long lastFpsTime = 0;
     public DoubleBuffer xBuffer = BufferUtils.createDoubleBuffer(1);
     public DoubleBuffer yBuffer = BufferUtils.createDoubleBuffer(1);
@@ -61,11 +70,7 @@ public class Engine implements Runnable {
         }
 
         //setup key callback, this will be called every time a key is pressed, repeated or released
-        glfwSetKeyCallback(window, (window, key, scancode, action, mods) -> {
-            if (key == GLFW_KEY_ESCAPE && action == GLFW_RELEASE) {
-                glfwSetWindowShouldClose(window, true);
-            }
-        });
+        glfwSetKeyCallback(window, new Input());
 
         //get thread stack and push a new frame
 
@@ -87,18 +92,26 @@ public class Engine implements Runnable {
         //make opengl context current
         glfwMakeContextCurrent(window);
 
-        //enable v sync
-        glfwSwapInterval(vSync);
-
-        glfwShowWindow(window);
-    }
-
-    public void loop() {
         //Critical for LWJGL interoperation with GLFWs OpenGL context
         GL.createCapabilities();
 
         //set clear color
         glClearColor(1.0f, 0.0f, 0.0f, 0.0f);
+
+        //enable v sync
+        glfwSwapInterval(vSync);
+
+        glfwShowWindow(window);
+        Shader.loadAll();
+        Shader.BG.enable();
+        Matrix4f pr_matrix = Matrix4f.orthographic(-10.f, 10.0f, -10.0f * 9.0f / 16.0f, 10.0f * 9.0f / 16.0f, -1.0f, 1.0f);
+        Shader.BG.setUniformMat4f("pr_matrix", pr_matrix);
+        Shader.BG.disable();
+
+        level = new Level();
+    }
+
+    public void loop() {
 
         double time = Timer.getTime();
         double unprocessed = 0;
@@ -109,12 +122,13 @@ public class Engine implements Runnable {
 
             time = start;
 
-            while(unprocessed >= frame_cap) {
+            while (unprocessed >= frame_cap) {
                 unprocessed -= frame_cap;
 
-                if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GL_TRUE) {
+                if (Input.keys[GLFW_KEY_ESCAPE]) {
                     glfwSetWindowShouldClose(window, true);
                 }
+
                 //Poll for windows events
                 glfwPollEvents();
                 glfwGetCursorPos(window, xBuffer, yBuffer);
@@ -122,11 +136,17 @@ public class Engine implements Runnable {
                 System.out.printf("x: %f, y: %f \n", xBuffer.get(0), yBuffer.get(0));
                 System.out.printf("unprocessed: %f, frame_cap: %f \n", unprocessed, frame_cap);
             }
-
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); //clear the frame buffer
-
-            glfwSwapBuffers(window); //swap the color buffers
-
+            render();
         }
+    }
+
+    private void render() {
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); //clear the frame buffer
+        level.render();
+        int i = glGetError();
+        if (i != GL_NO_ERROR) {
+            System.out.println(i);
+        }
+        glfwSwapBuffers(window);
     }
 }

@@ -1,7 +1,8 @@
+import engine.Engine;
 
 public class Main {
-    public static int width = 800;
-    public static int height = 600;
+    public static int width = 1600;
+    public static int height = 900;
 
     public static void main(String[] args) {
         try {
